@@ -35,7 +35,7 @@ module apb_slave #(
         2'b00: begin
           // IDLE
           PREADY <= 1'b0;
-          PSELVERR <= 1'b0;
+          PSLVERR <= 1'b0;
         end
         2'b01: begin
           // SETUP

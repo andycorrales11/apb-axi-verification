@@ -1,0 +1,12 @@
++incdir+tb
++incdir+tb/seq
++incdir+tb/agent
++incdir+tb/env
++incdir+tb/test
++incdir+/home/andy/tools/verilator-master/test_regress/t/uvm
+
+/home/andy/tools/verilator-master/test_regress/t/uvm/uvm_pkg_all_v2020_3_1_dpi.svh
+rtl/apb_slave.sv
+tb/apb_if.sv
+tb/apb_uvm_pkg.sv
+tb/tb_top.sv
