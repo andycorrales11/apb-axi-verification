@@ -17,8 +17,8 @@ class apb_driver extends uvm_driver #(apb_seq_item);
 
   virtual task run_phase(uvm_phase phase);
     `uvm_info(get_type_name(), "Starting run_phase", UVM_LOW)
-    vif.PSEL <= 0;
-    vif.PENABLE <= 0;
+    vif.mst_cb.PSEL <= 0;
+    vif.mst_cb.PENABLE <= 0;
     @(posedge vif.PRESETn);  // wait for reset deassertion
     forever begin
       seq_item_port.get_next_item(req);
@@ -29,28 +29,28 @@ class apb_driver extends uvm_driver #(apb_seq_item);
 
   virtual task send_to_dut(apb_seq_item req);
     // SETUP phase (one clock)
-    vif.PSEL    <= 1;
-    vif.PENABLE <= 0;
-    vif.PADDR   <= req.addr;
-    vif.PWRITE  <= (req.dir == WRITE);
-    vif.PPROT   <= req.PPROT;
-    vif.PWDATA  <= req.data;
-    vif.PSTRB   <= req.PSTRB;
-    @(vif);
+    vif.mst_cb.PSEL    <= 1;
+    vif.mst_cb.PENABLE <= 0;
+    vif.mst_cb.PADDR   <= req.addr;
+    vif.mst_cb.PWRITE  <= (req.dir == WRITE);
+    vif.mst_cb.PPROT   <= req.PPROT;
+    vif.mst_cb.PWDATA  <= req.data;
+    vif.mst_cb.PSTRB   <= req.PSTRB;
+    @(vif.mst_cb);
 
     // ACCESS phase: hold PENABLE high until the slave samples ready,
-    vif.PENABLE <= 1;
+    vif.mst_cb.PENABLE <= 1;
     do
-      @(vif);
-    while (!vif.PREADY);
+      @(vif.mst_cb);
+    while (!vif.mst_cb.PREADY);
 
     if (req.dir == READ) begin
-      req.rdata  = vif.PRDATA;
-      req.slverr = vif.PSLVERR;
+      req.rdata  = vif.mst_cb.PRDATA;
+      req.slverr = vif.mst_cb.PSLVERR;
     end
 
-    vif.PSEL    <= 0;
-    vif.PENABLE <= 0;
+    vif.mst_cb.PSEL    <= 0;
+    vif.mst_cb.PENABLE <= 0;
   endtask
 
 endclass : apb_driver
