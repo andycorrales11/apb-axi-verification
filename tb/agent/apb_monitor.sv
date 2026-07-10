@@ -18,9 +18,39 @@ class apb_monitor extends uvm_monitor;
   endfunction
 
   virtual task run_phase(uvm_phase phase);
+    logic [APB_ADDR_WIDTH-1:0]   addr;
+    apb_dir_e                    dir;
+    logic [APB_DATA_WIDTH-1:0]   wdata;
+    logic [APB_DATA_WIDTH/8-1:0] strb;
+    logic [                 2:0] prot;
+    apb_seq_item                 tr;
+
     `uvm_info(get_type_name(), "Starting run phase", UVM_LOW)
     forever begin
-      // TODO: wait for a transfer to complete, build an apb_seq_item, fill it, and call ap.write(tr).
+      @(vif.mon_cb);
+      if (vif.mon_cb.PSEL && !vif.mon_cb.PENABLE) begin
+        // SETUP edge
+        addr  = vif.mon_cb.PADDR;
+        dir   = vif.mon_cb.PWRITE ? WRITE : READ;
+        wdata = vif.mon_cb.PWDATA;
+        strb  = vif.mon_cb.PSTRB;
+        prot  = vif.mon_cb.PPROT;
+
+        // Wait for the completing edge: ACCESS phase with PREADY high.
+        do
+          @(vif.mon_cb);
+        while (!(vif.mon_cb.PENABLE && vif.mon_cb.PREADY));
+
+        tr = apb_seq_item::type_id::create("tr");
+        tr.addr  = addr;
+        tr.dir   = dir;
+        tr.PSTRB = strb;
+        tr.PPROT = prot;
+        if (dir == WRITE) tr.data = wdata;
+        else tr.rdata = vif.mon_cb.PRDATA;
+        tr.slverr = vif.mon_cb.PSLVERR;
+        ap.write(tr);
+      end
     end
   endtask
 endclass : apb_monitor
