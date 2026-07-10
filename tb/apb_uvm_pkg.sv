@@ -14,4 +14,15 @@ package apb_uvm_pkg;
 `include "apb_monitor.sv"
 `include "apb_agent.sv"
 
+  // 6-8. analysis + env
+`include "apb_coverage.sv"
+`include "apb_scoreboard.sv"
+`include "apb_env.sv"
+
+  // 9. stimulus
+`include "apb_base_seq.sv"
+
+  // 10. tests
+`include "apb_base_test.sv"
+
 endpackage : apb_uvm_pkg
