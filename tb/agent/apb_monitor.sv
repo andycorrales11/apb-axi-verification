@@ -13,7 +13,7 @@ class apb_monitor extends uvm_monitor;
     super.build_phase(phase);
     ap = new("ap", this);
     if (!uvm_config_db#(virtual apb_if)::get(this, "", "vif", vif)) begin
-      `uvm_fatal(get_type_name(), "Virtual interface must be set for: " + get_full_name())
+      `uvm_fatal(get_type_name(), {"Virtual interface must be set for: ", get_full_name()})
     end
   endfunction
 
@@ -26,20 +26,24 @@ class apb_monitor extends uvm_monitor;
     apb_seq_item                 tr;
 
     `uvm_info(get_type_name(), "Starting run phase", UVM_LOW)
+    // Samples raw interface signals at @(posedge vif.PCLK) instead of using
+    // vif.mon_cb -- see the note in apb_driver.sv about Verilator 5.048's
+    // clocking-block scheduling. Raw reads at the edge see pre-edge values,
+    // i.e. exactly what the DUT's flops sample.
     forever begin
-      @(vif.mon_cb);
-      if (vif.mon_cb.PSEL && !vif.mon_cb.PENABLE) begin
+      @(posedge vif.PCLK);
+      if (vif.PSEL && !vif.PENABLE) begin
         // SETUP edge
-        addr  = vif.mon_cb.PADDR;
-        dir   = vif.mon_cb.PWRITE ? WRITE : READ;
-        wdata = vif.mon_cb.PWDATA;
-        strb  = vif.mon_cb.PSTRB;
-        prot  = vif.mon_cb.PPROT;
+        addr  = vif.PADDR;
+        dir   = vif.PWRITE ? WRITE : READ;
+        wdata = vif.PWDATA;
+        strb  = vif.PSTRB;
+        prot  = vif.PPROT;
 
         // Wait for the completing edge: ACCESS phase with PREADY high.
         do
-          @(vif.mon_cb);
-        while (!(vif.mon_cb.PENABLE && vif.mon_cb.PREADY));
+          @(posedge vif.PCLK);
+        while (!(vif.PENABLE && vif.PREADY));
 
         tr = apb_seq_item::type_id::create("tr");
         tr.addr  = addr;
@@ -47,8 +51,8 @@ class apb_monitor extends uvm_monitor;
         tr.PSTRB = strb;
         tr.PPROT = prot;
         if (dir == WRITE) tr.data = wdata;
-        else tr.rdata = vif.mon_cb.PRDATA;
-        tr.slverr = vif.mon_cb.PSLVERR;
+        else tr.rdata = vif.PRDATA;
+        tr.slverr = vif.PSLVERR;
         ap.write(tr);
       end
     end
