@@ -1,3 +1,6 @@
+// Top-level container: builds the agent, the scoreboard, and coverage, and wires
+// the monitor's analysis port to both subscribers.
+
 class apb_env extends uvm_env;
 
   apb_agent      agent;

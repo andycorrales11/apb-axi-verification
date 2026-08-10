@@ -1,3 +1,22 @@
+// A class can only `include after everything it references is already
+// compiled.
+//
+// Dependency order (top = compiled first):
+//   1. seq_item      -- the transaction; everyone references it
+//   2. sequencer     -- typedef'd on seq_item
+//   3. driver        -- pulls seq_items, drives the vif
+//   4. monitor       -- samples the vif, emits observed seq_items
+//   5. agent         -- contains driver + monitor + sequencer
+//   6. coverage      -- subscriber on monitor's analysis port
+//   7. scoreboard    -- subscriber on monitor's analysis port
+//   8. env           -- contains agent + scoreboard + coverage
+//   9. base sequence -- runs on the sequencer
+//  10. base test     -- builds the env, starts a sequence
+//
+// The actual basenames are resolved via +incdir+ lines in sim/filelist.f
+// (tb/seq, tb/agent, tb/env, tb/test). Add new components by inserting an
+// `include in the right slot below.
+
 package apb_uvm_pkg;
 
   parameter int APB_ADDR_WIDTH = 32;

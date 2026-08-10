@@ -1,3 +1,6 @@
+// Builds the env and runs a sequence. This is what +UVM_TESTNAME selects. Derive
+// concrete tests (smoke, random, error) and override which sequence runs.
+
 class apb_base_test extends uvm_test;
 
   apb_env env;
@@ -17,10 +20,11 @@ class apb_base_test extends uvm_test;
     uvm_root::get().print_topology();
   endfunction
 
-  // TODO: run_phase   -> raise objection, start sequence, drop objection.
   task run_phase(uvm_phase phase);
+    apb_base_seq seq;
     phase.raise_objection(this);
-    // seq.start(env.agent.sqr)
+    seq = apb_base_seq::type_id::create("seq");
+    seq.start(env.agent.sqr);
     phase.drop_objection(this);
   endtask
 

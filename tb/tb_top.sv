@@ -2,7 +2,8 @@ module tb_top;
 
   import uvm_pkg::*;
 
-  `include "uvm_macros.svh"
+  // No uvm_macros.svh include: the flattened UVM amalgamation predefines all
+  // macros and ships no separate macros file.
 
   import apb_uvm_pkg::*;
 
