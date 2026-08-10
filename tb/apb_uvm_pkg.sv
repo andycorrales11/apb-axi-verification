@@ -43,5 +43,6 @@ package apb_uvm_pkg;
 
   // 10. tests
 `include "apb_base_test.sv"
+`include "apb_random_test.sv"
 
 endpackage : apb_uvm_pkg
