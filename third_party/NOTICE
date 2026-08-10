@@ -1,0 +1,65 @@
+Third-party RTL vendored into this repository
+=============================================
+
+These files are NOT authored by this project. They are pinned snapshot copies
+of upstream open-source RTL, vendored (rather than added as git submodules) so
+that the exact hardware under test is committed alongside the testbench and the
+mutation-testing harness can plant bugs into a local copy.
+
+Nothing in third_party/ has been modified from upstream. Any change would defeat
+the purpose of using it: this RTL is here precisely because the testbench was
+*not* written against it, which is what makes it an honest check on the
+verification environment.
+
+
+pulp-platform/axi
+-----------------
+Upstream:  https://github.com/pulp-platform/axi
+Version:   v0.39.10
+Commit:    a8c53cee2520d328d390c507c88818e8ac144c8c
+License:   Solderpad Hardware License, Version 0.51 (SHL-0.51)
+           http://solderpad.org/licenses/SHL-0.51
+           Full text: third_party/pulp/axi/LICENSE
+Copyright: 2018-2024 ETH Zurich and University of Bologna
+
+Vendored files:
+  axi/include/axi/typedef.svh      struct typedef macros (AXI_LITE_TYPEDEF_*)
+  axi/include/axi/assign.svh       interface<->struct assign macros
+  axi/src/axi_pkg.sv               resp_t/prot_t, RESP_* codes, aligned_addr()
+  axi/src/axi_intf.sv              AXI_LITE interface (needed only so the unused
+                                   axi_lite_to_apb_intf wrapper in the DUT file
+                                   resolves at link time)
+  axi/src/axi_lite_to_apb.sv       THE DUT: AXI4-Lite -> APB4 bridge
+
+
+pulp-platform/common_cells
+--------------------------
+Upstream:  https://github.com/pulp-platform/common_cells
+Version:   v1.39.0  (the version axi v0.39.10's Bender.yml depends on)
+Commit:    9ca8a7655f741e7dd5736669a20a301325194c28
+License:   Solderpad Hardware License, Version 0.51 (SHL-0.51)
+           http://solderpad.org/licenses/SHL-0.51
+           Full text: third_party/pulp/common_cells/LICENSE
+Copyright: 2018-2024 ETH Zurich and University of Bologna
+
+Vendored files -- the transitive closure axi_lite_to_apb actually needs, and
+nothing more:
+  include/common_cells/registers.svh      `FFLARN et al (used by the bridge FSM)
+  include/common_cells/assertions.svh     `ASSERT_* (pulled in by rr_arb_tree,
+                                          spill_register_flushable, onehot_to_bin)
+  src/cf_math_pkg.sv                      idx_width()
+  src/lzc.sv                              <- rr_arb_tree
+  src/fifo_v3.sv                          <- fall_through_register
+  src/addr_decode.sv                      APB slave select decode
+  src/addr_decode_dync.sv                 <- addr_decode
+  src/spill_register.sv                   optional request/response pipelining
+  src/spill_register_flushable.sv         <- spill_register
+  src/fall_through_register.sv            default (unpipelined) req/resp staging
+  src/onehot_to_bin.sv                    <- axi_lite_to_apb_intf
+  src/rr_arb_tree.sv                      read/write request arbitration
+
+
+Toolchain note
+--------------
+Verified to elaborate, compile, and simulate under the pinned Verilator 5.048
+(see CLAUDE.md) with no source modifications.
