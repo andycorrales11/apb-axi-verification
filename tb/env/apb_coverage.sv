@@ -2,7 +2,8 @@
 // observed transfer. Coverage is your "did I actually exercise it" number --
 // but remember the project's headline is the MUTANT tally, not coverage %.
 
-// Verilator (5.048) does not support covergroups (COVERIGN), so this
+// NOTE: comments must not *start* with the word "verilator" (parsed as a
+// pragma). Covergroups are unsupported by Verilator 5.048 (COVERIGN), so this
 // collector implements the coverage model by hand with named bins + counters.
 // Model (what a covergroup would express):
 //   - dir x register: each of the 16 registers read AND written  (32 bins)
