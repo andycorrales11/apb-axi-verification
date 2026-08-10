@@ -1,0 +1,80 @@
+# =============================================================================
+# mutants/mutants.yaml -- the list of seeded bugs.
+# -----------------------------------------------------------------------------
+# Each mutant is one textual edit applied to a copy of rtl/apb_slave.sv. The
+# runner (mutate.py) applies it, rebuilds, runs the sim, and records whether the
+# testbench caught it.
+#
+# Fields per mutant:
+#   id       (required)  short unique slug, e.g. decode_off_by_one
+#   desc     (required)  one-line human description for the report
+#   find     (required)  text to search for in the DUT
+#   replace  (required)  what to replace it with (the bug)
+#   regex    (optional)  true => find/replace are Python regex (default false)
+#   file     (optional)  source file to mutate (default rtl/apb_slave.sv)
+#
+# Run with:  make mutants   (uses apb_random_test)
+# Score   =  CAUGHT / (CAUGHT + ESCAPED)
+# =============================================================================
+
+mutants:
+  # --- register index / decode -----------------------------------------------
+  - id: decode_off_by_one
+    desc: "Register index taken from PADDR[6:3] instead of [5:2] -> wrong register"
+    find: "index <= PADDR[5:2];"
+    replace: "index <= PADDR[6:3];"
+
+  - id: decode_mask_narrow
+    desc: "Decode error checks PADDR[31:7] -> 0x40-0x7F silently accepted"
+    find: "| PADDR[31:6];"
+    replace: "| PADDR[31:7];"
+
+  - id: setup_wrong_encoding
+    desc: "SETUP decoded as {PSEL,PENABLE}==2'b01 -> index/decode_err never latched (the real bug this TB found)"
+    find: "2'b10: begin"
+    replace: "2'b01: begin"
+
+  # --- write datapath --------------------------------------------------------
+  - id: ignore_pstrb
+    desc: "Write ignores PSTRB -> partial-word writes clobber the whole register"
+    find: "if (PSTRB[i]) registers[index][i*8 +: 8] <= PWDATA[i*8 +: 8];"
+    replace: "registers[index][i*8 +: 8] <= PWDATA[i*8 +: 8];"
+
+  - id: wdata_lane0_everywhere
+    desc: "Every enabled byte lane written with PWDATA[7:0] -> byte-lane routing bug"
+    find: "<= PWDATA[i*8 +: 8];"
+    replace: "<= PWDATA[7:0];"
+
+  # --- read datapath ---------------------------------------------------------
+  - id: read_neighbor
+    desc: "Read returns registers[index+1] -> neighbor register on reads"
+    find: "PRDATA <= registers[index];"
+    replace: "PRDATA <= registers[index + 4'd1];"
+
+  # --- error signalling ------------------------------------------------------
+  - id: no_slverr_on_decode
+    desc: "Decode error never raises PSLVERR -> illegal access silently accepted"
+    find: "PSLVERR <= 1'b1;"
+    replace: "PSLVERR <= 1'b0;"
+
+  # --- protocol timing -------------------------------------------------------
+  - id: pready_stuck_low
+    desc: "PREADY never asserted in ACCESS -> handshake hangs (watchdog should trip)"
+    find: "PREADY <= 1'b1;"
+    replace: "PREADY <= 1'b0;"
+
+  - id: pready_early
+    desc: "PREADY asserted already in SETUP -> master samples read data a cycle early"
+    regex: true
+    find: '(// SETUP.*\n\s*)PREADY <= 1''b0;'
+    replace: '\g<1>PREADY <= 1''b1;'
+
+  # --- reset -----------------------------------------------------------------
+  # Expected ESCAPE in 2-state simulation: Verilator initializes state to 0,
+  # which is exactly the reset value, so a missing register reset is invisible
+  # without X-propagation or a preload-then-reset test. Kept deliberately as
+  # the "explain why it escaped" story mutant.
+  - id: reset_skip_registers
+    desc: "Registers not cleared on reset (2-state sim: expected to escape)"
+    find: "registers[i] <= '0;"
+    replace: "registers[i] <= registers[i];"
