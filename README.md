@@ -19,6 +19,7 @@ make clean
 
 ** SOURCES **
 - *AMBA APB Protocol Specification* - Arm Ltd: https://developer.arm.com/documentation/ihi0024/latest/
+- *AMBA AXI Protocol Specification* - Arm Ltd: https://support.arm.com/documentation/ihi0022/latest 
 - *Verilog Language and Application v29.0* Cadence Training
 - *Essential SystemVerilog for UVM v1.2.5* Cadence Training
 - *SystemVerilog Accelerated Verification using UVM v1.2.6* Cadence Training
