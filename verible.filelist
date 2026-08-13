@@ -3,6 +3,13 @@
 +incdir+tb/agent
 +incdir+tb/env
 +incdir+tb/test
++incdir+tb/axi
++incdir+tb/axi/seq
++incdir+tb/axi/agent
++incdir+tb/axi/env
++incdir+tb/axi/test
++incdir+third_party/pulp/axi/include
++incdir+third_party/pulp/common_cells/include
 +incdir+/home/andy/tools/verilator-master/test_regress/t/uvm
 
 /home/andy/tools/verilator-master/test_regress/t/uvm/uvm_pkg_all_v2020_3_1_dpi.svh
@@ -10,3 +17,6 @@ rtl/apb_slave.sv
 tb/apb_if.sv
 tb/apb_uvm_pkg.sv
 tb/tb_top.sv
+tb/axi/axi_lite_if.sv
+tb/axi/axi_uvm_pkg.sv
+tb/axi/tb_axi_top.sv

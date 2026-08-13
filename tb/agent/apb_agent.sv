@@ -4,7 +4,8 @@ class apb_agent extends uvm_agent;
   apb_driver    drv;
   apb_monitor   mon;
 
-  uvm_active_passive_enum is_active = UVM_ACTIVE;  // default to active, override via config_db
+  // is_active is inherited from uvm_agent. Do NOT redeclare it here -- a local
+  // field shadows the one super.build_phase() sets from config_db.
 
   `uvm_component_utils(apb_agent)
 
