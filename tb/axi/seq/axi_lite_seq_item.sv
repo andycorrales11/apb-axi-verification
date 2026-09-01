@@ -38,6 +38,10 @@ class axi_lite_seq_item extends uvm_sequence_item;
   // ---- stimulus shaping ----
   rand axi_addr_class_e addr_class;
   rand bit              err_near_boundary;
+  // The bridge special-cases zero-strobe writes (axi_lite_to_apb.sv:299): no
+  // APB transfer, answer OKAY -- even out of map, masking a DECERR. Shaped
+  // deliberately rather than left to a 1/16 chance on a free `rand strb`.
+  rand bit              zero_strb;
 
   // ---- results: filled by the driver/monitor, NOT randomized ----
   logic [AXI_DATA_WIDTH-1:0] rdata;
@@ -89,6 +93,19 @@ class axi_lite_seq_item extends uvm_sequence_item;
       else addr inside {[32'h8000_0000 : 32'hFFFF_FF00]};
     }
   }
+
+  // Reads carry no strobe; the bridge forces '0 on the read path
+  // (axi_lite_to_apb.sv:117), so pin it to keep the cross-check unambiguous.
+  constraint c_strb {
+    if (dir == AXI_READ) {
+      strb == '0;
+    } else {
+      if (zero_strb) strb == '0;
+      else strb != '0;
+    }
+  }
+
+  constraint c_zero_strb_dist {zero_strb dist {0 := 8, 1 := 2};}
 
   constraint c_timing {
     skew_cycles   inside {[1 : 3]};

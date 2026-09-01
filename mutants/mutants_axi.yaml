@@ -1,0 +1,77 @@
+# =============================================================================
+# mutants/mutants_axi.yaml -- seeded bugs for the AXI4-Lite -> APB bridge.
+#
+# Same format as mutants.yaml; the top-level keys point the runner at the other
+# DUT and the PROTO=axi build. JOBS=1 is not optional -- two parallel g++ runs
+# on the UVM amalgamation get OOM-killed under the Makefile's MemoryMax=5G.
+#
+# Run with:  make mutants-axi
+# =============================================================================
+
+dut_file: third_party/pulp/axi/src/axi_lite_to_apb.sv
+make_var: AXI_BRIDGE
+make_args: [PROTO=axi, JOBS=1]
+test: axi_random_test
+
+mutants:
+  # --- response mapping ------------------------------------------------------
+  - id: read_pslverr_ignored
+    desc: "Read response ignores PSLVERR -> 0x40-0xFF reads answer OKAY instead of SLVERR"
+    find: "apb_rresp.resp  = apb_resp_i[apb_sel_idx].pslverr ?"
+    replace: "apb_rresp.resp  = 1'b0 ?"
+
+  - id: write_pslverr_ignored
+    desc: "Write response ignores PSLVERR -> 0x40-0xFF writes answer OKAY instead of SLVERR"
+    find: "apb_wresp       = apb_resp_i[apb_sel_idx].pslverr ?"
+    replace: "apb_wresp       = 1'b0 ?"
+
+  - id: read_decerr_to_okay
+    desc: "Off-map read answers OKAY instead of DECERR -> illegal access silently accepted"
+    find: "apb_rresp.resp  = axi_pkg::RESP_DECERR;"
+    replace: "apb_rresp.resp  = axi_pkg::RESP_OKAY;"
+
+  - id: write_decerr_to_slverr
+    desc: "Off-map write answers SLVERR instead of DECERR -> wrong error class"
+    find: "apb_wresp       = ~(|apb_req.strb) ? axi_pkg::RESP_OKAY : axi_pkg::RESP_DECERR;"
+    replace: "apb_wresp       = ~(|apb_req.strb) ? axi_pkg::RESP_OKAY : axi_pkg::RESP_SLVERR;"
+
+  - id: decerr_rdata_changed
+    desc: "Off-map read returns 0x0 instead of the bridge's 0xDEA110C8 fill pattern"
+    find: "apb_rresp       = '{data: data_t'(32'hDEA110C8), resp: axi_pkg::RESP_SLVERR};"
+    replace: "apb_rresp       = '{data: data_t'(32'h0), resp: axi_pkg::RESP_SLVERR};"
+
+  # --- APB request datapath --------------------------------------------------
+  # These two are the point of running a passive APB agent behind the bridge:
+  # both leave the AXI-visible result correct, so the reference model signs off
+  # and only the cross-check in axi_lite_scoreboard can fail.
+  - id: pprot_dropped
+    desc: "Bridge drops PPROT on the APB side -- AXI result unchanged, cross-check only"
+    find: "pprot:   apb_req.prot,"
+    replace: "pprot:   3'b000,"
+
+  - id: zero_strb_issues_apb
+    desc: "Zero-strobe write issues an APB transfer instead of none -- cross-check only"
+    find: "if (apb_dec_valid && ((apb_req.write && (|apb_req.strb)) || (!apb_req.write))) begin"
+    replace: "if (apb_dec_valid) begin"
+
+  - id: pstrb_forced_full
+    desc: "Bridge drives PSTRB all-ones -> partial writes clobber the whole register"
+    find: "pstrb:   apb_req.strb"
+    replace: "pstrb:   '1"
+
+  # --- APB handshake ---------------------------------------------------------
+  - id: penable_stuck_low
+    desc: "Access phase never asserts PENABLE -> slave never completes, watchdog trips"
+    find: "penable: 1'b1,"
+    replace: "penable: 1'b0,"
+
+  - id: setup_asserts_penable
+    desc: "Setup phase asserts PENABLE -> slave skips SETUP and uses a stale index/decode_err"
+    find: "penable: 1'b0,"
+    replace: "penable: 1'b1,"
+
+  # --- AXI channel gating ----------------------------------------------------
+  - id: aw_ready_without_w
+    desc: "Write request accepted on AWVALID alone -> W data sampled before it is valid"
+    find: "assign axi_req_valid[WR] = axi_lite_req_i.aw_valid & axi_lite_req_i.w_valid;"
+    replace: "assign axi_req_valid[WR] = axi_lite_req_i.aw_valid;"
