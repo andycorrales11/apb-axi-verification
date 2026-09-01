@@ -6,6 +6,11 @@
 
 **STATUS** APB testbench is built end to end: agent, scoreboard, coverage, and a mutation-testing harness (`mutants/mutate.py` + `mutants/mutants.yaml`) that plants seeded bugs into the DUT and scores CAUGHT / (CAUGHT + ESCAPED). AXI4-Lite against third-party RTL in progress
 
+**RESULTS (APB)**
+- **Mutation score: 9 / 10 seeded bugs caught (90%)** — the single escapee, a missing register reset, is undetectable in 2-state simulation and was predicted in advance. Zero stillborn.
+- **Functional coverage: 52 / 52 bins (100%)** at 200 constrained-random transfers. Verilator has no covergroup support, so the model is hand-implemented in `apb_coverage`.
+- Test plan, feature-to-coverage mapping, and the known gaps: [`docs/apb_test_plan.md`](docs/apb_test_plan.md).
+
 **COMMANDS**
 ```bash
 make build              # elaborate + compile the APB testbench

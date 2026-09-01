@@ -7,7 +7,8 @@
 #   make run      -- build then run (TEST=<uvm test name>, default apb_base_test)
 #   make waves    -- run with VCD tracing -> build/waves.vcd
 #   make lint     -- Verilator lint-only pass over the TB + DUT
-#   make mutants  -- run the bug-injection harness (mutants/mutate.py)
+#   make mutants  -- run the bug-injection harness on the APB slave
+#   make mutants-axi -- same, on the AXI4-Lite bridge (PROTO=axi, JOBS=1)
 #   make clean    -- remove build artifacts
 #
 # Add PROTO=axi to any of the above to build the AXI4-Lite environment
@@ -101,7 +102,7 @@ UVM_SRCS = $(UVM_FLAT) $(UVM_DPI)
 RUN_FLAGS ?= +UVM_NO_RELNOTES +UVM_TESTNAME=$(TEST) +verilator+seed+$(SEED)
 
 # =============================================================================
-.PHONY: build run waves lint smoke mutants clean help
+.PHONY: build run waves lint smoke mutants mutants-axi clean help
 
 help:
 	@grep -E '^#   make ' $(MAKEFILE_LIST) | sed 's/^#  //'
@@ -148,6 +149,11 @@ smoke:
 # ---- Mutant (bug-injection) harness -----------------------------------------
 mutants:
 	python3 mutants/mutate.py --config mutants/mutants.yaml --test apb_random_test
+
+# The AXI config carries its own PROTO=axi/JOBS=1/test defaults, so this needs
+# no extra flags. JOBS=1 matters: see the note in mutants_axi.yaml.
+mutants-axi:
+	python3 mutants/mutate.py --config mutants/mutants_axi.yaml
 
 clean:
 	rm -rf build/obj_dir* build/smoke build/mut_* build/baseline build/sim*.log build/waves.vcd
