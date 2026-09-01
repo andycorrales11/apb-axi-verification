@@ -107,6 +107,18 @@ class axi_lite_seq_item extends uvm_sequence_item;
 
   constraint c_zero_strb_dist {zero_strb dist {0 := 8, 1 := 2};}
 
+  // Without these the dist weights above are ignored in practice: the solver
+  // samples the joint (class, addr) space uniformly, so class frequency tracks
+  // how many addresses each class permits rather than its weight. Measured at
+  // 200 transactions, REG/SLVERR/DECERR came out 42/79/79 against an intended
+  // 127/36/36 -- inverted, because ADDR_REG allows only 16 addresses while
+  // ADDR_DECERR allows millions. Same effect on zero_strb, whose strb == '0
+  // branch permits one value against fifteen.
+  constraint c_solve_order {
+    solve addr_class before addr;
+    solve zero_strb before strb;
+  }
+
   constraint c_timing {
     skew_cycles   inside {[1 : 3]};
     b_ready_delay inside {[0 : 3]};

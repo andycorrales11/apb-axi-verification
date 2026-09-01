@@ -57,7 +57,7 @@ class axi_lite_coverage extends uvm_subscriber #(axi_lite_seq_item);
   endfunction
 
   virtual function void report_phase(uvm_phase phase);
-    int unsigned hit, total;
+    int unsigned hit, total, wr_total;
     string       missing = "";
     string       dname[2] = '{"RD", "WR"};
     string       cname[3] = '{"REG", "SLVERR", "DECERR"};
@@ -93,9 +93,19 @@ class axi_lite_coverage extends uvm_subscriber #(axi_lite_seq_item);
     if (zero_strb_off_map > 0) hit++;
     else missing = {missing, " zero_strb_off_map"};
 
+    foreach (wstrb_seen[s]) wr_total += wstrb_seen[s];
+
     `uvm_info(get_type_name(), $sformatf(
               "Functional coverage: %0d/%0d bins (%0.1f%%) over %0d samples", hit, total,
               total ? 100.0 * hit / total : 0.0, num_sampled), UVM_NONE)
+    // Realized mix, so the shaping constraints can be checked against what
+    // actually came out instead of assumed from the weights.
+    `uvm_info(get_type_name(), $sformatf(
+              "Realized mix: REG=%0d SLVERR=%0d DECERR=%0d | writes=%0d (zero-strobe %0d) reads=%0d",
+              class_dir[ADDR_REG][0] + class_dir[ADDR_REG][1],
+              class_dir[ADDR_SLVERR][0] + class_dir[ADDR_SLVERR][1],
+              class_dir[ADDR_DECERR][0] + class_dir[ADDR_DECERR][1], wr_total, wstrb_seen[0],
+              num_sampled - wr_total), UVM_NONE)
     if (missing != "") `uvm_info(get_type_name(), {"Unhit bins:", missing}, UVM_LOW)
   endfunction
 
