@@ -51,6 +51,22 @@ is masked. It is modelled deliberately rather than constrained away.
   7:2:2 across REG/SLVERR/DECERR, off-map addresses split between
   just-past-boundary and far out-of-range, and zero-strobe writes raised to 20 %
   of writes so the masked-`DECERR` corner is actually reached.
+- **Selectors are drawn outside the constraint solver.** `dir`, `addr_class` and
+  `zero_strb` are non-`rand` and chosen in `pre_randomize()`; the solver only
+  fills in a payload inside the branch it is handed. This is not stylistic. A
+  `dist` weight on a selector is not honored, because the solver samples the
+  joint (selector, payload) space and a selector's frequency therefore tracks how
+  many payload values its branch permits: `ADDR_REG` allows 16 addresses against
+  `ADDR_DECERR`'s millions, and an intended 127/36/36 came out **42/79/79 —
+  inverted**. `solve … before` does not fix it. Nor is the problem confined to
+  one field: `c_strb` couples `dir` to `zero_strb`, so a 20 % zero-strobe draw
+  reached coverage as 34 % *of writes*. Measured over six seeds after the change,
+  the realized mix averages 122.8/38.2/39.0 against an intended 127.3/36.4/36.4,
+  writes average 99.0 of 200, and zero-strobe writes are 121 of 594 (20.4 %).
+- **Coverage reports the realized mix, not only bin hit/miss.** Every bin needs
+  just one hit, so a badly skewed stimulus can reach 100 % while barely touching
+  a real register. The mix line is what exposed the skew above; without it the
+  environment looked fully covered and was not.
 - **Timing stimulus** — the part that is genuinely new versus APB. Each
   transaction randomizes AW-vs-W ordering (`aw_w_skew` × `skew_cycles`) and how
   long the master withholds `BREADY`/`RREADY`. Withholding `BREADY` is real
@@ -130,6 +146,14 @@ driver.
 `EXOKAY` is excluded: nothing in this stack can produce it, and a denominator
 containing impossible bins makes the number lie. The monitor raises an error if
 one is ever observed.
+
+At 200 transactions, five of six sampled seeds (1, 2, 3, 42, 99) reach **45/45**.
+`SEED=7` reaches 44/45, missing `wstrb[1000]`: it happens to draw only 82 writes,
+so 62 non-zero-strobe writes have to cover 15 patterns and one comes up empty.
+That is a sample-size artifact, not a stimulus gap — raising `+num_trans` closes
+it. It is recorded here rather than tuned away, because picking the seed or the
+transaction count that reaches 100 % is how a coverage number stops meaning
+anything.
 
 ---
 

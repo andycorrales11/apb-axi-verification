@@ -23,7 +23,8 @@ class axi_lite_seq_item extends uvm_sequence_item;
   `uvm_object_utils(axi_lite_seq_item)
 
   // ---- request ----
-  rand axi_dir_e                    dir;
+  // dir is NOT rand: it is a shaping choice, drawn in pre_randomize(). See there.
+  axi_dir_e                         dir;
   rand logic [AXI_ADDR_WIDTH-1:0]   addr;
   rand logic [AXI_DATA_WIDTH-1:0]   data;
   rand logic [AXI_DATA_WIDTH/8-1:0] strb;
@@ -36,12 +37,14 @@ class axi_lite_seq_item extends uvm_sequence_item;
   rand int unsigned r_ready_delay;
 
   // ---- stimulus shaping ----
-  rand axi_addr_class_e addr_class;
+  // NOT rand: drawn in pre_randomize(). See the note there.
+  axi_addr_class_e      addr_class;
   rand bit              err_near_boundary;
   // The bridge special-cases zero-strobe writes (axi_lite_to_apb.sv:299): no
   // APB transfer, answer OKAY -- even out of map, masking a DECERR. Shaped
   // deliberately rather than left to a 1/16 chance on a free `rand strb`.
-  rand bit              zero_strb;
+  // NOT rand, same reason as addr_class.
+  bit                   zero_strb;
 
   // ---- results: filled by the driver/monitor, NOT randomized ----
   logic [AXI_DATA_WIDTH-1:0] rdata;
@@ -49,6 +52,46 @@ class axi_lite_seq_item extends uvm_sequence_item;
 
   function new(string name = "axi_lite_seq_item");
     super.new(name);
+  endfunction
+
+  // The rule this class follows: **the solver picks values, pre_randomize picks
+  // selectors.** Any field that selects which branch of a constraint applies is
+  // drawn here; the solver only fills in a payload within the branch it was
+  // handed. Leaving a selector rand does not do what it looks like it does.
+  //
+  // Why. The solver does not sample a selector by its weight, it samples the
+  // joint (selector, payload) space, so the selector's frequency tracks how many
+  // payload values its branch permits:
+  //   - addr_class: at 200 transactions an intended 127/36/36 came out 42/79/79,
+  //     inverted, because ADDR_REG permits 16 addresses against ADDR_DECERR's
+  //     millions. Only 42 of 200 transactions touched a real register.
+  //   - zero_strb: it is also coupled to dir through c_strb, since zero_strb==1
+  //     forces strb == '0 down both dir branches and zero_strb==0 does not. So
+  //     conditioning on writes reskews it: drawn at 20%, it reached coverage as
+  //     34% of writes.
+  //   - dir: c_strb gives AXI_READ one legal strb against AXI_WRITE's fifteen.
+  //     A cut-down model of just dir/strb/zero_strb put P(WRITE) at 0.77; in the
+  //     full item, with addr/data/prot/timing also in the solve, it was much
+  //     milder (~0.53). Drawn here regardless -- it is a selector, and the size
+  //     of the distortion depends on the rest of the constraint set.
+  //
+  // `solve ... before` does not fix this. For addr_class it changed nothing at
+  // all (same seed, REG=42 with and without). For zero_strb it looked like a fix
+  // -- 15/103 became 20/87 -- but that was a small sample; once addr_class moved
+  // and the stream shifted, the same constraint gave 33/96. The RNG was cleared
+  // as a suspect first: $urandom_range measured flat over 200k draws, reseeded
+  // and not.
+  //
+  // After the change, over seeds 1/2/3/7/42/99: class mix averages 122.8/38.2/
+  // 39.0 against 127.3/36.4/36.4, writes average 99.0 of 200, and zero-strobe
+  // writes are 121 of 594 (20.4%).
+  function void pre_randomize();
+    int unsigned pick = $urandom_range(10);
+    if (pick < 7) addr_class = ADDR_REG;
+    else if (pick < 9) addr_class = ADDR_SLVERR;
+    else addr_class = ADDR_DECERR;
+    dir       = ($urandom_range(1) == 1) ? AXI_WRITE : AXI_READ;
+    zero_strb = ($urandom_range(9) < 2);  // 20% of writes; inert on reads
   endfunction
 
   function string convert2string();
@@ -79,10 +122,6 @@ class axi_lite_seq_item extends uvm_sequence_item;
   // identical, so the cross-check can compare them directly.
   constraint c_addr_aligned {addr[1:0] == 2'b00;}
 
-  constraint c_addr_class_dist {
-    addr_class dist {ADDR_REG := 7, ADDR_SLVERR := 2, ADDR_DECERR := 2};
-  }
-
   constraint c_addr_range {
     if (addr_class == ADDR_REG) {
       addr inside {[32'h0000_0000 : 32'h0000_003C]};
@@ -103,20 +142,6 @@ class axi_lite_seq_item extends uvm_sequence_item;
       if (zero_strb) strb == '0;
       else strb != '0;
     }
-  }
-
-  constraint c_zero_strb_dist {zero_strb dist {0 := 8, 1 := 2};}
-
-  // Without these the dist weights above are ignored in practice: the solver
-  // samples the joint (class, addr) space uniformly, so class frequency tracks
-  // how many addresses each class permits rather than its weight. Measured at
-  // 200 transactions, REG/SLVERR/DECERR came out 42/79/79 against an intended
-  // 127/36/36 -- inverted, because ADDR_REG allows only 16 addresses while
-  // ADDR_DECERR allows millions. Same effect on zero_strb, whose strb == '0
-  // branch permits one value against fifteen.
-  constraint c_solve_order {
-    solve addr_class before addr;
-    solve zero_strb before strb;
   }
 
   constraint c_timing {
