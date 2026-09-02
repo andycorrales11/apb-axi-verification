@@ -187,4 +187,32 @@ anything.
 
 ## 6. Mutation results
 
-_Filled in from `make mutants-axi`._
+`make mutants-axi` plants one seeded bug at a time into the vendored bridge
+(`third_party/pulp/axi/src/axi_lite_to_apb.sv`), rebuilds, and reruns the
+`axi_random_test`. The baseline builds and runs clean first; each mutant is then
+scored CAUGHT (a `UVM_ERROR`/`UVM_FATAL` fired), ESCAPED (passed anyway — a hole
+in the testbench), or STILLBORN (did not compile, excluded from scoring).
+
+**Score: 11 / 11 CAUGHT (100%). Zero escaped, zero stillborn.**
+
+| # | Mutant | What it breaks | Result |
+|---|--------|----------------|--------|
+| 1 | `read_pslverr_ignored` | Read response ignores `PSLVERR` → 0x40–0xFF reads answer OKAY instead of SLVERR | CAUGHT |
+| 2 | `write_pslverr_ignored` | Write response ignores `PSLVERR` → 0x40–0xFF writes answer OKAY instead of SLVERR | CAUGHT |
+| 3 | `read_decerr_to_okay` | Off-map read answers OKAY instead of DECERR → illegal access silently accepted | CAUGHT |
+| 4 | `write_decerr_to_slverr` | Off-map write answers SLVERR instead of DECERR → wrong error class | CAUGHT |
+| 5 | `decerr_rdata_changed` | Off-map read returns 0x0 instead of the bridge's `0xDEA110C8` fill | CAUGHT |
+| 6 | `pprot_dropped` | Bridge drops `PPROT` on the APB side — AXI result unchanged, **cross-check only** | CAUGHT |
+| 7 | `zero_strb_issues_apb` | Zero-strobe write issues an APB transfer instead of none — AXI answers OKAY either way, **cross-check only** | CAUGHT |
+| 8 | `pstrb_forced_full` | Bridge drives `PSTRB` all-ones → partial writes clobber the whole register | CAUGHT |
+| 9 | `penable_stuck_low` | Access phase never asserts `PENABLE` → slave never completes, watchdog trips | CAUGHT |
+| 10 | `setup_asserts_penable` | Setup phase asserts `PENABLE` → slave skips SETUP, uses a stale index/decode_err | CAUGHT |
+| 11 | `aw_ready_without_w` | Write accepted on `AWVALID` alone → W data sampled before it is valid | CAUGHT |
+
+Mutants **6 and 7 are the ones this environment was built to catch.** Both leave
+the AXI-visible response correct — a dropped `PPROT` and a masked zero-strobe
+write are invisible on the AXI side — and are caught *only* because the APB
+agent runs in passive mode and the scoreboard cross-checks what the bridge
+actually emitted on APB against what it should have. Without that cross-check
+both would ESCAPE. Catching them is the direct payoff of the passive-APB-agent
+design described in §2.
