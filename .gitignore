@@ -5,6 +5,14 @@ obj_dir/
 *.fst
 *.log
 
+# Questa (Altera Starter FPGA Edition) artifacts
+sim/questa/work/
+*.ucdb
+transcript
+modelsim.ini
+vsim.wlf
+*.wlf
+
 # Verilator intermediate
 *.o
 *.d
@@ -26,6 +34,10 @@ __pycache__/
 # Plugins
 .slang
 .claude
+
+# My Docs
+docs/sva_methodology.md
+sim/questa/README.md
 
 CLAUDE.md
 
